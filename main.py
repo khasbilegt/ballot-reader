@@ -5,7 +5,10 @@ import numpy as np
 
 
 def pre_process_image(src):
+    # kernel = np.ones((5, 5), np.uint8)
     gray = cv.cvtColor(src, cv.COLOR_BGR2GRAY)
+    # blur = cv.GaussianBlur(gray, (9, 9), 0)
+    # blur = cv.morphologyEx(blur, cv.MORPH_CLOSE, kernel)
     _, threshold = cv.threshold(gray, 0, 255, cv.THRESH_BINARY_INV + cv.THRESH_OTSU)
 
     return threshold
@@ -50,7 +53,7 @@ def calculate_edge_points(contours):
     return top_left, top_right, bottom_left, bottom_right
 
 
-def crop_image(src):
+def crop_image(src, write=False):
     img = pre_process_image(src)
     contours = find_contours(img)
     top_left, top_right, bottom_left, bottom_right = calculate_edge_points(contours)
@@ -62,15 +65,51 @@ def crop_image(src):
     pts2 = np.float32([[0, 0], [width, 0], [0, height], [width, height]])
 
     matrix = cv.getPerspectiveTransform(pts1, pts2)
-    cropped = cv.warpPerspective(src, matrix, (width, height))
+    cropped = cv.warpPerspective(img, matrix, (width, height))
 
+    if write:
+        cv.imwrite("./cropped-image.jpeg", cropped)
     return cropped
+
+
+def detect_vote(src):
+    whites = np.sum(src == 255)
+    blacks = np.sum(src == 0)
+    return whites > blacks
+
+
+def get_votes(src, template):
+    votes = []
+    for x, y, candidate in template:
+        x_start = 66
+        x_step = 11
+        y_start = 54
+        y_step = 12
+
+        left = x_start + 2 * x_step * (x - 1)
+        right = left + x_step * 2
+
+        top = y_start + 2 * y_step * (y - 1)
+        bottom = top + y_step
+
+        voted = detect_vote(src[top:bottom, left:right])
+        votes.append((candidate, voted))
+    return votes
 
 
 if __name__ == "__main__":
     data = Path("./data")
-    filepath = Path("2/8_974334.jpeg")
+    filepath = Path("5/60.jpeg")
 
     img = cv.imread(str(data / filepath))
     cropped = crop_image(img)
-    cv.imwrite("./cropped-image.jpeg", cropped)
+    template = [
+        (1, 10, "Бямбасүрэнгийн ЭНХ-АМГАЛАН"),
+        (1, 11, "Шатарбалын РАДНААСЭД"),
+        (12, 10, "Очирбатын АМГАЛАНБААТАР"),
+        (12, 11, "Осормаагийн БАТХАНД"),
+        (23, 10, "Базаррагчаагийн ОЮУНБИЛЭГ"),
+        (23, 11, "Сандуйн БАТБААТАР"),
+    ]
+    votes = get_votes(cropped, template)
+    print(votes)

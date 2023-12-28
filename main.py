@@ -34,16 +34,10 @@ def find_contours(img, area_threshold=(1200, 2000), arc_threshold=(100, 200)):
 
 
 def calculate_edge_points(contours):
-    points = []
-    for contour in contours:
-        epsilon = 0.1 * cv.arcLength(contour, True)
-        approximated_contour = cv.approxPolyDP(contour, epsilon, True)
-        for point in approximated_contour.tolist():
-            points.append(point[0])
-
-    points_ndarray = np.array(points)
-    hull = cv.convexHull(points_ndarray)
-    approximated_hull = cv.approxPolyDP(hull, 0.1 * cv.arcLength(hull, True), True)
+    points = np.concatenate(contours)
+    hull = cv.convexHull(points)
+    epsilon = 0.1 * cv.arcLength(hull, True)
+    approximated_hull = cv.approxPolyDP(hull, epsilon, True)
 
     top_left, top_right, bottom_left = sorted(
         [(point[0][0], point[0][1]) for point in approximated_hull.tolist()],
@@ -61,10 +55,10 @@ def crop_image(img):
     width = max(top_right[0] - top_left[0], bottom_right[0] - bottom_left[0])
     height = max(bottom_left[1] - top_left[1], bottom_right[1] - top_right[1])
 
-    pts1 = np.float32([top_left, top_right, bottom_left, bottom_right])
-    pts2 = np.float32([[0, 0], [width, 0], [0, height], [width, height]])
+    source = np.float32([top_left, top_right, bottom_left, bottom_right])
+    dest = np.float32([[0, 0], [width, 0], [0, height], [width, height]])
 
-    matrix = cv.getPerspectiveTransform(pts1, pts2)
+    matrix = cv.getPerspectiveTransform(source, dest)
     cropped = cv.warpPerspective(image, matrix, (width, height))
 
     return cropped
@@ -90,10 +84,7 @@ def get_votes(img, template, x_weight=0, y_weight=0):
         top = y_start + 2 * y_step * (y - 1)
         bottom = top + y_step
 
-        cv.line(cropped, [left, top], [left, bottom], (255, 0, 0), 2)
-        cv.line(cropped, [right, top], [right, bottom], (255, 0, 0), 2)
-        cv.line(cropped, [left, top], [right, top], (255, 0, 0), 2)
-        cv.line(cropped, [left, bottom], [right, bottom], (255, 0, 0), 2)
+        cv.rectangle(cropped, [left, top], [right, bottom], (255, 0, 0), 2)
 
         voted = is_filled(img[top:bottom, left:right])
         votes.append((candidate, voted))

@@ -1,0 +1,51 @@
+quota: 3
+groups:
+  group_1:
+    column: 1
+    row: 1
+    candidates:
+      - Хавдислам Баделхан
+      - Айп Гылымхан
+      - Телухан Аубакар
+
+  group_2:
+    column: 2
+    row: 1
+    candidates:
+      - Дакей Мурат
+      - Булан Бейсен
+      - Рахмет Гажайв
+
+  group_3:
+    column: 3
+    row: 1
+    candidates:
+      - Болат Айбек
+      - Зулпай Батырек
+      - Таштуан Ауез
+
+  group_4:
+    column: 1
+    row: 6
+    candidates:
+      - Мавлет Төлеген
+      - Палдай Нямхүү
+      - Харатышхан Ганибат
+
+  group_5:
+    column: 2
+    row: 6
+    candidates:
+      - Гавал-Эрдэнэ Баянмөнх
+
+  group_6:
+    column: 3
+    row: 6
+    candidates:
+      - Батмөнх Бямбагэрэл
+
+  group_7:
+    column: 1
+    row: 10
+    candidates:
+      - Каснай Ханагат

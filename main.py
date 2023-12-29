@@ -1,7 +1,27 @@
+import logging
+import sys
 from pathlib import Path
 
 import cv2 as cv
 import numpy as np
+import yaml
+
+logging.basicConfig(filename="./election.log")
+logger = logging.getLogger()
+
+
+class BallotException(Exception):
+    quota: int
+    counted: int
+
+    def __init__(self, quota: int, counted: int, *args: object) -> None:
+        self.quota = quota
+        self.counted = counted
+
+        return super().__init__(
+            f"Боловсруулалтын үр дүн ({counted}), дугуйлсан нэр дэвшигчийн тоо ({quota}) таарсангүй.",
+            *args,
+        )
 
 
 def pre_process_image(img):
@@ -67,13 +87,14 @@ def crop_image(img):
 def is_filled(img):
     whites = np.sum(img == 255)
     blacks = np.sum(img == 0)
-    return whites > blacks
+    return whites > (whites + blacks) * 0.3
 
 
-def get_votes(img, template, x_weight=0, y_weight=0):
+def get_votes(img, candidates, x_weight=0, y_weight=0):
     votes = []
     cropped = np.array(img, copy=True)
-    for x, y, candidate in template:
+
+    for group, name, x, y in candidates:
         x_start = 66 + x_weight
         x_step = 11
         y_start = 54 + y_weight
@@ -87,45 +108,97 @@ def get_votes(img, template, x_weight=0, y_weight=0):
         color = (255, 0, 0)
         y_half = int(y_step / 2)
         origin = [left + x_step, top + y_half]
-        cv.rectangle(cropped, [left, top], [right, bottom], color, 1)
+
+        # cv.rectangle(cropped, [left, top], [right, bottom], color, 1)
         cv.ellipse(cropped, origin, [x_step, y_half], 0, 0, 360, color, 1)
 
         voted = is_filled(img[top:bottom, left:right])
-        votes.append((candidate, voted))
+        votes.append((group, name, voted))
+
     return votes, cropped
 
 
-def detect_votes(path, template, write=False, write_dir=Path("./process")):
-    if not path.exists():
-        FileNotFoundError(f"{str(path)} is not found!")
-
+def detect_votes(path, metadata, write=False, write_dir=Path("./process")):
     img = cv.imread(str(path))
     cropped_image = crop_image(img)
-    votes, marked_image = get_votes(cropped_image, template)
+    votes, marked_image = get_votes(cropped_image, metadata["candidates"])
 
     if write:
+        print("\tСаналууд: ")
+        for group, name, vote in votes:
+            print(f"\t\t{"🟢" if vote else "🔴"} {name} [{group}]")
+        print("\n")
+
         if not write_dir.exists():
             write_dir.mkdir()
 
         cv.imwrite(str(write_dir / f"{path.stem}_cropped.jpeg"), cropped_image)
         cv.imwrite(str(write_dir / f"{path.stem}_marked.jpeg"), marked_image)
+
+    counted = len([vote for vote in votes if vote[-1]])
+    if not (counted == metadata["quota"]):
+        # print(
+        #     f"Боловсруулалтын үр дүн ({counted}), дугуйлсан нэр дэвшигчийн тоо ({metadata["quota"]}) таарсангүй."
+        # )
+        logger.debug(
+            f"Боловсруулалтын үр дүн ({counted}), дугуйлсан нэр дэвшигчийн тоо ({metadata["quota"]}) таарсангүй.",
+            counted,
+            metadata["quota"],
+        )
+        # raise BallotException(counted=counted, quota=metadata["quota"])
     return votes
 
 
-if __name__ == "__main__":
-    data = Path("./data")
-    filepath = Path("5/2900.jpeg")
+def get_metadata(path, row_offset=9, column_offset=11):
+    if (
+        path := Path((path if path.is_dir() else path.parent) / "metadata.yaml")
+    ) and not path.exists():
+        raise FileNotFoundError(
+            "Нэр дэвшигчдийн мэдээлэл одсонгүй. Боловсруулалт хийх файлын хамт metadata.yaml гэсэн нэртэйгээр оруулна уу."
+        )
 
-    votes = detect_votes(
-        data / filepath,
-        template=[
-            (1, 10, "Бямбасүрэнгийн ЭНХ-АМГАЛАН"),
-            (1, 11, "Шатарбалын РАДНААСЭД"),
-            (12, 10, "Очирбатын АМГАЛАНБААТАР"),
-            (12, 11, "Осормаагийн БАТХАНД"),
-            (23, 10, "Базаррагчаагийн ОЮУНБИЛЭГ"),
-            (23, 11, "Сандуйн БАТБААТАР"),
-        ],
-        write=True,
-    )
-    print(votes)
+    with path.open(mode="rb") as fp:
+        config = yaml.load(fp, Loader=yaml.Loader)
+
+    candidates = []
+    for group_name, data in config["groups"].items():
+        row = data["row"] + row_offset
+        column = column_offset * (data["column"] - 1) + 1
+        for index, candidate in enumerate(data["candidates"]):
+            candidates.append((group_name, candidate, column, row + index))
+    return {"quota": config["quota"], "candidates": candidates}
+
+
+if __name__ == "__main__":
+    if len(sys.argv) < 2:
+        raise Exception("Боловсруулалт хийх зураг эсвэл хавтсын замыг оруулна уу!")
+
+    if len(sys.argv) >= 2 and (path := Path(sys.argv[1])) and not path.exists():
+        raise FileNotFoundError("Заасан зам олдсонгүй!")
+
+    if path.is_dir():
+        filepaths = []
+        for root, dirs, files in path.walk(on_error=print):
+            for file in files:
+                filepath = Path(root / file)
+                if (
+                    filepath.exists()
+                    and filepath.is_file()
+                    and filepath.suffix in [".jpeg", ".jpg"]
+                ):
+                    filepaths.append(root / file)
+                else:
+                    print("Алдаа: ", filepath)
+        print("Боловсруулах файлын тоо: ", len(filepaths))
+        metadata = get_metadata(path)
+        total = len(filepaths)
+        for index, path in enumerate(filepaths, start=1):
+            votes = detect_votes(path, metadata, write=False)
+            print(
+                f"{index}/{total} Тоолсон: {len([v for v in votes if v[-1]])} Хүчинтэй: {metadata["quota"]}"
+            )
+
+    else:
+        print("📄 Файл: ", path)
+        metadata = get_metadata(path)
+        votes = detect_votes(path, metadata, write=True)

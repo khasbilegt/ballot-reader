@@ -84,7 +84,11 @@ def get_votes(img, template, x_weight=0, y_weight=0):
         top = y_start + 2 * y_step * (y - 1)
         bottom = top + y_step
 
-        cv.rectangle(cropped, [left, top], [right, bottom], (255, 0, 0), 2)
+        color = (255, 0, 0)
+        y_half = int(y_step / 2)
+        origin = [left + x_step, top + y_half]
+        cv.rectangle(cropped, [left, top], [right, bottom], color, 1)
+        cv.ellipse(cropped, origin, [x_step, y_half], 0, 0, 360, color, 1)
 
         voted = is_filled(img[top:bottom, left:right])
         votes.append((candidate, voted))
@@ -92,6 +96,9 @@ def get_votes(img, template, x_weight=0, y_weight=0):
 
 
 def detect_votes(path, template, write=False, write_dir=Path("./process")):
+    if not path.exists():
+        FileNotFoundError(f"{str(path)} is not found!")
+
     img = cv.imread(str(path))
     cropped_image = crop_image(img)
     votes, marked_image = get_votes(cropped_image, template)
@@ -107,7 +114,7 @@ def detect_votes(path, template, write=False, write_dir=Path("./process")):
 
 if __name__ == "__main__":
     data = Path("./data")
-    filepath = Path("5/1807.jpeg")
+    filepath = Path("5/2900.jpeg")
 
     votes = detect_votes(
         data / filepath,

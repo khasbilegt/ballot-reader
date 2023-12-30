@@ -222,7 +222,7 @@ def worker(path):
                     f"{name} ({group_name})"
                     for group_name, name, _, _ in metadata["candidates"]
                 ]
-                + ["counted", "quota", "valid", "path"]
+                + ["Тоолсон", "Дугайлах", "Зөв", "Зам"]
             )
 
             for index, path in enumerate(filepaths, start=1):

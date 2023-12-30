@@ -2,7 +2,7 @@ import argparse
 import csv
 import logging
 import os
-from multiprocessing import Pool
+import sys
 from pathlib import Path
 
 import cv2 as cv
@@ -22,11 +22,9 @@ parser.add_argument("--root", "-r", action="store_true")
 
 
 def pre_process_image(img):
-    # kernel = np.ones((5, 5), np.uint8)
     gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
-    # blur = cv.GaussianBlur(gray, (9, 9), 0)
-    # blur = cv.morphologyEx(blur, cv.MORPH_CLOSE, kernel)
-    _, threshold = cv.threshold(gray, 0, 255, cv.THRESH_BINARY_INV + cv.THRESH_OTSU)
+    blur = cv.GaussianBlur(gray, (5, 5), 0)
+    _, threshold = cv.threshold(blur, 0, 255, cv.THRESH_BINARY_INV + cv.THRESH_OTSU)
 
     return threshold
 
@@ -143,7 +141,7 @@ def get_votes(img, candidates, x_weight=0, y_weight=0):
     return votes, cropped, vote_count
 
 
-def detect_votes(path, metadata, write_dir=Path("./process")):
+def detect_votes(path: Path, metadata, write_dir=Path("./process")):
     img = cv.imread(str(path))
     cropped_image = crop_image(img)
     votes, marked_image, vote_count = get_votes(cropped_image, metadata["candidates"])
@@ -154,8 +152,9 @@ def detect_votes(path, metadata, write_dir=Path("./process")):
             f"Буруу тоолсон: {vote_count}/{metadata["quota"]} - {path}",
         )
 
-        if not write_dir.exists():
-            write_dir.mkdir()
+        processed_path = write_dir / path
+        if not processed_path.parent.exists():
+            processed_path.parent.mkdir(parents=True)
 
         height, width, _ = converted_image.shape
 
@@ -179,17 +178,19 @@ def detect_votes(path, metadata, write_dir=Path("./process")):
             2,
             cv.LINE_AA,
         )
-        cv.imwrite(str(write_dir / f"{path.stem}.jpeg"), converted_image)
+
+        cv.imwrite(str(processed_path), converted_image)
 
     return votes, vote_count
 
 
 def get_metadata(path, row_offset=9, column_offset=11):
-    if (path := Path(path.parent, "metadata.yaml")) and not path.exists():
+    if (
+        path := Path(path if path.is_dir() else path.parent, "metadata.yaml")
+    ) and not path.exists():
         raise FileNotFoundError(
             "Нэр дэвшигчдийн мэдээлэл одсонгүй. Боловсруулалт хийх файлын хамт metadata.yaml гэсэн нэртэйгээр оруулна уу."
         )
-
     with path.open(mode="rb") as fp:
         config = yaml.load(fp, Loader=yaml.Loader)
 
@@ -211,11 +212,12 @@ def worker(path):
             for f in files
             if Path(root, f).suffix in [".jpeg", ".jpg"]
         ]
+        total = len(filepaths)
         metadata = get_metadata(path)
-        with Path(path.parent, "report.csv").open(mode="w") as report:
+        with Path(path, "report.csv").open(mode="w") as report:
             report_writer = csv.writer(report)
             report_writer.writerow(
-                ["no"]
+                ["Дугаар"]
                 + [
                     f"{name} ({group_name})"
                     for group_name, name, _, _ in metadata["candidates"]
@@ -223,8 +225,9 @@ def worker(path):
                 + ["counted", "quota", "valid", "path"]
             )
 
-            for index, path in enumerate(filepaths):
+            for index, path in enumerate(filepaths, start=1):
                 votes, count = detect_votes(path, metadata)
+                print(f"{index}/{total} - {count}({metadata["quota"]}) - {path}")
                 report_writer.writerow(
                     [index]
                     + [int(vote) for _, _, vote in votes]
@@ -233,32 +236,18 @@ def worker(path):
     else:
         print("📄 Файл: ", path)
         metadata = get_metadata(path)
-        votes = detect_votes(path, metadata)
+        votes, count = detect_votes(path, metadata)
         candidate_names = [f"{v[1]} ({v[0]})" for v in votes if v[-1]]
         print(
-            f"\tТоолсон: {len(candidate_names)} ({", ".join(candidate_names)})\n\tХүчинтэй: {metadata["quota"]}",
+            f"\tТоолсон: {count} ({", ".join(candidate_names)})\n\tХүчинтэй: {metadata["quota"]}",
         )
 
 
 if __name__ == "__main__":
-    args = parser.parse_args()
+    if len(sys.argv) < 2:
+        raise Exception("Боловсруулалт хийх зураг эсвэл хавтсын замыг оруулна уу!")
 
-    if args.root:
-        if len(args.paths) != 1:
-            raise RuntimeError("ddd")
+    if len(sys.argv) >= 2 and (path := Path(sys.argv[1])) and not path.exists():
+        raise FileNotFoundError("Заасан зам олдсонгүй!")
 
-        root = args.paths[0]
-        try:
-            paths = [
-                Path(root, i)
-                for i in os.listdir(root)
-                if not i.startswith(".") and os.path.isdir(Path(root, i))
-            ]
-        except NotADirectoryError:
-            print(f"{root} is not a directory")
-            exit(1)
-    else:
-        paths = args.paths
-
-    with Pool(processes=min(args.concurrency, len(paths))) as pool:
-        pool.map(worker, (Path(i) for i in paths))
+    worker(path)

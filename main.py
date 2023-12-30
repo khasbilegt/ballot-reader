@@ -1,5 +1,7 @@
+import argparse
 import logging
-import sys
+import os
+from multiprocessing import Pool
 from pathlib import Path
 
 import cv2 as cv
@@ -11,6 +13,11 @@ logging.basicConfig(
     filemode="w",
     format="[%(asctime)s] %(levelname)s - %(message)s",
 )
+
+parser = argparse.ArgumentParser()
+parser.add_argument("paths", type=str, nargs="+")
+parser.add_argument("--concurrency", action="store", type=int, default=os.cpu_count())
+parser.add_argument("--root", "-r", action="store_true")
 
 
 def pre_process_image(img):
@@ -67,15 +74,16 @@ def find_contours(img, area_threshold=(1200, 2000), arc_threshold=(100, 200)):
 def calculate_edge_points(contours):
     ordered_contours = []
     for contour in contours:
-        points = contour.reshape(-1, 2)
+        points = np.concatenate(contour)
+        x_ordered = sorted(points, key=lambda x: x[0])
 
-        ordered_points = points[points[:, 0].argsort()]
-        ordered_points = ordered_points[ordered_points[:, 1].argsort()]
-        ordered_contours.append(ordered_points)
+        left_top, left_bottom = sorted(x_ordered[:2], key=lambda x: x[1])
+        right_top, right_bottom = sorted(x_ordered[2:], key=lambda x: x[1])
+        ordered_contours.append((left_top, right_top, left_bottom, right_bottom))
 
-    top_left = ordered_contours[0][2].tolist()
-    top_right = ordered_contours[1][3].tolist()
-    bottom_left = ordered_contours[2][2].tolist()
+    top_left = ordered_contours[0][2]
+    top_right = ordered_contours[1][3]
+    bottom_left = ordered_contours[2][2]
     bottom_right = [top_right[0], bottom_left[-1]]
     return top_left, top_right, bottom_left, bottom_right
 
@@ -195,7 +203,7 @@ def get_metadata(path, row_offset=9, column_offset=11):
     return {"quota": config["quota"], "candidates": candidates}
 
 
-def process_path(path):
+def worker(path):
     if path.is_dir():
         print("📁 Хавтас: ", path)
         filepaths = [
@@ -211,6 +219,8 @@ def process_path(path):
                 print(
                     f"{index}/{total} Тоолсон: {len([v for v in votes if v[-1]])} Хүчинтэй: {metadata["quota"]}"
                 )
+            else:
+                print(f"{index}/{total} Тоолсон болон хүчинтэй санал зөрсөн")
     else:
         print("📄 Файл: ", path)
         metadata = get_metadata(path)
@@ -222,10 +232,24 @@ def process_path(path):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        raise Exception("Боловсруулалт хийх зураг эсвэл хавтсын замыг оруулна уу!")
+    args = parser.parse_args()
 
-    if len(sys.argv) >= 2 and (path := Path(sys.argv[1])) and not path.exists():
-        raise FileNotFoundError("Заасан зам олдсонгүй!")
+    if args.root:
+        if len(args.paths) != 1:
+            raise RuntimeError("ddd")
 
-    process_path(path)
+        root = args.paths[0]
+        try:
+            paths = [
+                i
+                for i in os.listdir(root)
+                if not i.startswith(".") and os.path.isdir(i)
+            ]
+        except NotADirectoryError:
+            print(f"{root} is not a directory")
+            exit(1)
+    else:
+        paths = args.paths
+
+    with Pool(processes=min(args.concurrency, len(paths))) as pool:
+        pool.map(worker, (Path(i) for i in paths))

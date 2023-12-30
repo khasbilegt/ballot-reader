@@ -30,7 +30,7 @@ def pre_process_image(img):
     return threshold
 
 
-def find_contours(img, area_threshold=(1200, 2000), arc_threshold=(100, 200)):
+def find_contours(img):
     height, width = img.shape
     image = img.copy()
 
@@ -93,8 +93,8 @@ def crop_image(img):
     contours = find_contours(image)
     top_left, top_right, bottom_left, bottom_right = calculate_edge_points(contours)
 
-    width = max(top_right[0] - top_left[0], bottom_right[0] - bottom_left[0])
-    height = max(bottom_left[1] - top_left[1], bottom_right[1] - top_right[1])
+    width = top_right[0] - top_left[0]
+    height = bottom_left[1] - top_left[1]
 
     source = np.float32([top_left, top_right, bottom_left, bottom_right])
     dest = np.float32([[0, 0], [width, 0], [0, height], [width, height]])
@@ -184,9 +184,7 @@ def detect_votes(path, metadata, write_dir=Path("./process")):
 
 
 def get_metadata(path, row_offset=9, column_offset=11):
-    if (
-        path := Path((path if path.is_dir() else path.parent.parent) / "metadata.yaml")
-    ) and not path.exists():
+    if (path := Path(path.parent, "metadata.yaml")) and not path.exists():
         raise FileNotFoundError(
             "Нэр дэвшигчдийн мэдээлэл одсонгүй. Боловсруулалт хийх файлын хамт metadata.yaml гэсэн нэртэйгээр оруулна уу."
         )
@@ -212,15 +210,15 @@ def worker(path):
             for f in files
             if Path(root, f).suffix in [".jpeg", ".jpg"]
         ]
-        total = len(filepaths)
         metadata = get_metadata(path)
-        for index, path in enumerate(filepaths, start=1):
-            if votes := detect_votes(path, metadata):
-                print(
-                    f"{index}/{total} Тоолсон: {len([v for v in votes if v[-1]])} Хүчинтэй: {metadata["quota"]}"
-                )
-            else:
-                print(f"{index}/{total} Тоолсон болон хүчинтэй санал зөрсөн")
+        for path in filepaths:
+            votes = detect_votes(path, metadata)
+            if votes is None:
+                print(f"Тоолсон болон хүчинтэй санал зөрсөн - {path}")
+            # else:
+            #     print(
+            #         f"{len([v for v in votes if v[-1]])}/{metadata["quota"]} - {path}"
+            #     )
     else:
         print("📄 Файл: ", path)
         metadata = get_metadata(path)
@@ -241,9 +239,9 @@ if __name__ == "__main__":
         root = args.paths[0]
         try:
             paths = [
-                i
+                Path(root, i)
                 for i in os.listdir(root)
-                if not i.startswith(".") and os.path.isdir(i)
+                if not i.startswith(".") and os.path.isdir(Path(root, i))
             ]
         except NotADirectoryError:
             print(f"{root} is not a directory")

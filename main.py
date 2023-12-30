@@ -1,4 +1,5 @@
 import argparse
+import csv
 import logging
 import os
 from multiprocessing import Pool
@@ -180,7 +181,7 @@ def detect_votes(path, metadata, write_dir=Path("./process")):
         )
         cv.imwrite(str(write_dir / f"{path.stem}.jpeg"), converted_image)
 
-    return votes
+    return votes, vote_count
 
 
 def get_metadata(path, row_offset=9, column_offset=11):
@@ -211,14 +212,24 @@ def worker(path):
             if Path(root, f).suffix in [".jpeg", ".jpg"]
         ]
         metadata = get_metadata(path)
-        for path in filepaths:
-            votes = detect_votes(path, metadata)
-            if votes is None:
-                print(f"Тоолсон болон хүчинтэй санал зөрсөн - {path}")
-            # else:
-            #     print(
-            #         f"{len([v for v in votes if v[-1]])}/{metadata["quota"]} - {path}"
-            #     )
+        with Path(path.parent, "report.csv").open(mode="w") as report:
+            report_writer = csv.writer(report)
+            report_writer.writerow(
+                ["no"]
+                + [
+                    f"{name} ({group_name})"
+                    for group_name, name, _, _ in metadata["candidates"]
+                ]
+                + ["counted", "quota", "valid", "path"]
+            )
+
+            for index, path in enumerate(filepaths):
+                votes, count = detect_votes(path, metadata)
+                report_writer.writerow(
+                    [index]
+                    + [int(vote) for _, _, vote in votes]
+                    + [count, metadata["quota"], count == metadata["quota"], path]
+                )
     else:
         print("📄 Файл: ", path)
         metadata = get_metadata(path)

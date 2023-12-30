@@ -65,16 +65,18 @@ def find_contours(img, area_threshold=(1200, 2000), arc_threshold=(100, 200)):
 
 
 def calculate_edge_points(contours):
-    points = np.concatenate(contours)
-    hull = cv.convexHull(points)
-    epsilon = 0.1 * cv.arcLength(hull, True)
-    approximated_hull = cv.approxPolyDP(hull, epsilon, True)
+    ordered_contours = []
+    for contour in contours:
+        points = contour.reshape(-1, 2)
 
-    top_left, top_right, bottom_left = sorted(
-        [(point[0][0], point[0][1]) for point in approximated_hull.tolist()],
-        key=lambda p: sum(p),
-    )
-    bottom_right = (top_right[0], bottom_left[1])
+        ordered_points = points[points[:, 0].argsort()]
+        ordered_points = ordered_points[ordered_points[:, 1].argsort()]
+        ordered_contours.append(ordered_points)
+
+    top_left = ordered_contours[0][2].tolist()
+    top_right = ordered_contours[1][3].tolist()
+    bottom_left = ordered_contours[2][2].tolist()
+    bottom_right = [top_right[0], bottom_left[-1]]
     return top_left, top_right, bottom_left, bottom_right
 
 
@@ -109,7 +111,7 @@ def get_votes(img, candidates, x_weight=0, y_weight=0):
     for group, name, x, y in candidates:
         x_start = 66 + x_weight
         x_step = 11
-        y_start = 54 + y_weight
+        y_start = 20 + y_weight
         y_step = 12
 
         left = x_start + 2 * x_step * (x - 1)
@@ -133,59 +135,49 @@ def get_votes(img, candidates, x_weight=0, y_weight=0):
 
 
 def detect_votes(path, metadata, write_dir=Path("./process")):
-    try:
-        img = cv.imread(str(path))
-        cropped_image = crop_image(img)
-        votes, marked_image, vote_count = get_votes(
-            cropped_image, metadata["candidates"]
+    img = cv.imread(str(path))
+    cropped_image = crop_image(img)
+    votes, marked_image, vote_count = get_votes(cropped_image, metadata["candidates"])
+    converted_image = cv.cvtColor(marked_image, cv.COLOR_GRAY2BGR)
+
+    if not (vote_count == metadata["quota"]):
+        logging.error(
+            f"Буруу тоолсон: {vote_count}/{metadata["quota"]} - {path}",
         )
-        converted_image = cv.cvtColor(marked_image, cv.COLOR_GRAY2BGR)
 
-        if not (vote_count == metadata["quota"]):
-            logging.error(
-                f"Буруу тоолсон: {vote_count}/{metadata["quota"]} - {path}",
-            )
-            # print("\tСаналууд: ")
-            # for group, name, vote in votes:
-            #     print(f"\t\t{"🟢" if vote else "🔴"} {name} [{group}]")
-            # print("\n")
+        if not write_dir.exists():
+            write_dir.mkdir()
 
-            if not write_dir.exists():
-                write_dir.mkdir()
+        height, width, _ = converted_image.shape
 
-            height, width, _ = converted_image.shape
+        cv.putText(
+            converted_image,
+            f"Counted: {vote_count}",
+            (int(width / 2) - 100, height - 250),
+            cv.FONT_HERSHEY_SIMPLEX,
+            1,
+            (0, 255, 0),
+            2,
+            cv.LINE_AA,
+        )
+        cv.putText(
+            converted_image,
+            f"Quota: {metadata["quota"]}",
+            (int(width / 2) - 100, height - 200),
+            cv.FONT_HERSHEY_SIMPLEX,
+            1,
+            (0, 0, 255),
+            2,
+            cv.LINE_AA,
+        )
+        cv.imwrite(str(write_dir / f"{path.stem}.jpeg"), converted_image)
 
-            cv.putText(
-                converted_image,
-                f"Counted: {vote_count}",
-                (int(width / 2) - 100, height - 250),
-                cv.FONT_HERSHEY_SIMPLEX,
-                1,
-                (0, 255, 0),
-                2,
-                cv.LINE_AA,
-            )
-            cv.putText(
-                converted_image,
-                f"Quota: {metadata["quota"]}",
-                (int(width / 2) - 100, height - 200),
-                cv.FONT_HERSHEY_SIMPLEX,
-                1,
-                (0, 0, 255),
-                2,
-                cv.LINE_AA,
-            )
-            # cv.imwrite(str(write_dir / f"{path.stem}_cropped.jpeg"), cropped_image)
-            cv.imwrite(str(write_dir / f"{path.stem}.jpeg"), converted_image)
-
-        return votes
-    except AssertionError:
-        logging.error(f"Булан танилтууд алдаатай - {path}")
+    return votes
 
 
 def get_metadata(path, row_offset=9, column_offset=11):
     if (
-        path := Path((path if path.is_dir() else path.parent) / "metadata.yaml")
+        path := Path((path if path.is_dir() else path.parent.parent) / "metadata.yaml")
     ) and not path.exists():
         raise FileNotFoundError(
             "Нэр дэвшигчдийн мэдээлэл одсонгүй. Боловсруулалт хийх файлын хамт metadata.yaml гэсэн нэртэйгээр оруулна уу."
@@ -203,7 +195,7 @@ def get_metadata(path, row_offset=9, column_offset=11):
     return {"quota": config["quota"], "candidates": candidates}
 
 
-def process_path(path, metadata_path):
+def process_path(path):
     if path.is_dir():
         print("📁 Хавтас: ", path)
         filepaths = [
@@ -221,8 +213,12 @@ def process_path(path, metadata_path):
                 )
     else:
         print("📄 Файл: ", path)
-        metadata = get_metadata(metadata_path)
+        metadata = get_metadata(path)
         votes = detect_votes(path, metadata)
+        candidate_names = [f"{v[1]} ({v[0]})" for v in votes if v[-1]]
+        print(
+            f"\tТоолсон: {len(candidate_names)} ({", ".join(candidate_names)})\n\tХүчинтэй: {metadata["quota"]}",
+        )
 
 
 if __name__ == "__main__":
@@ -232,7 +228,4 @@ if __name__ == "__main__":
     if len(sys.argv) >= 2 and (path := Path(sys.argv[1])) and not path.exists():
         raise FileNotFoundError("Заасан зам олдсонгүй!")
 
-    if len(sys.argv) == 3:
-        metadata = sys.argv[2]
-        process_path(path, Path(metadata))
-    # process_path(path)
+    process_path(path)

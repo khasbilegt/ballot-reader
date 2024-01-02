@@ -13,6 +13,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("paths", type=str, nargs="+")
 parser.add_argument("--concurrency", action="store", type=int, default=os.cpu_count())
 parser.add_argument("--root", "-r", action="store_true")
+parser.add_argument("--metadata", "-m", action="store_true")
 
 
 def pre_process_image(img):
@@ -173,8 +174,8 @@ def detect_votes(path: Path, metadata, processed_path):
     return votes, vote_count
 
 
-def get_metadata(path, row_offset=9, column_offset=11):
-    if (path := Path(path, f"{path.stem}.yaml")) and not path.exists():
+def get_metadata(path, metadata_path, row_offset=9, column_offset=11):
+    if (path := Path(metadata_path, f"{path.stem}.yaml")) and not path.exists():
         raise FileNotFoundError(
             "Нэр дэвшигчдийн мэдээлэл одсонгүй. Боловсруулалт хийх файлын хамт metadata.yaml гэсэн нэртэйгээр оруулна уу."
         )
@@ -194,6 +195,14 @@ def worker(path):
     print("📁 Хавтас: " if path.is_dir() else "📄 Файл: ", path)
     if path.is_dir():
         output_path = Path.home() / "OUTPUT" / path.stem
+        metadata_path = Path.home() / "METADATA"
+
+        if (
+            metadata_file_path := Path(metadata_path, f"{path.stem}.yaml")
+        ) and not metadata_file_path.exists():
+            print(f"{metadata_file_path} does not exist")
+            return
+
         if not output_path.exists():
             output_path.mkdir(parents=True)
 
@@ -210,7 +219,7 @@ def worker(path):
             if Path(root, f).suffix in [".jpeg", ".jpg"]
         ]
         total = len(filepaths)
-        metadata = get_metadata(path)
+        metadata = get_metadata(path, metadata_path)
         with Path(output_path, "report.csv").open(mode="w") as report:
             report_writer = csv.writer(report)
             report_writer.writerow(
@@ -251,9 +260,7 @@ if __name__ == "__main__":
             paths = [
                 Path(root, i)
                 for i in os.listdir(root)
-                if not i.startswith(".")
-                and os.path.isdir(Path(root, i))
-                and os.path.exists(Path(root, i, f"{i}.yaml"))
+                if not i.startswith(".") and os.path.isdir(Path(root, i))
             ]
         except NotADirectoryError:
             print(f"{root} is not a directory")

@@ -135,7 +135,7 @@ def get_votes(img, candidates, x_weight=0, y_weight=0):
     return votes, cropped, vote_count
 
 
-def detect_votes(path: Path, metadata):
+def detect_votes(path: Path, metadata, processed_path):
     img = cv.imread(str(path))
     cropped_image = crop_image(img)
     votes, marked_image, vote_count = get_votes(cropped_image, metadata["candidates"])
@@ -145,9 +145,6 @@ def detect_votes(path: Path, metadata):
         logging.error(
             f"Буруу тоолсон: {vote_count}/{metadata["quota"]} - {path}",
         )
-        processed_path = path.parent.parent / "processed"
-        if not processed_path.parent.exists():
-            processed_path.parent.mkdir(parents=True)
 
         height, width, _ = converted_image.shape
 
@@ -177,7 +174,7 @@ def detect_votes(path: Path, metadata):
 
 
 def get_metadata(path, row_offset=9, column_offset=11):
-    if (path := Path(path, "metadata.yaml")) and not path.exists():
+    if (path := Path(path, f"{path.stem}.yaml")) and not path.exists():
         raise FileNotFoundError(
             "Нэр дэвшигчдийн мэдээлэл одсонгүй. Боловсруулалт хийх файлын хамт metadata.yaml гэсэн нэртэйгээр оруулна уу."
         )
@@ -195,12 +192,16 @@ def get_metadata(path, row_offset=9, column_offset=11):
 
 def worker(path):
     if path.is_dir():
+        output_path = Path.home() / "OUTPUT" / path.stem
+        if not output_path.exists():
+            output_path.mkdir(parents=True)
+
         logging.basicConfig(
-            filename=Path(path, "election.log"),
+            filename=Path(output_path, "election.log"),
             filemode="w",
             format="[%(asctime)s] %(levelname)s - %(message)s",
         )
-        print("📁 Хавтас: ", path)
+
         filepaths = [
             Path(root, f)
             for root, _, files in path.walk(on_error=print)
@@ -209,7 +210,7 @@ def worker(path):
         ]
         total = len(filepaths)
         metadata = get_metadata(path)
-        with Path(path, "report.csv").open(mode="w") as report:
+        with Path(output_path, "report.csv").open(mode="w") as report:
             report_writer = csv.writer(report)
             report_writer.writerow(
                 ["Дугаар"]
@@ -220,13 +221,13 @@ def worker(path):
                 + ["Тоолсон", "Дугайлах", "Зөв", "Зам"]
             )
 
-            for index, path in enumerate(filepaths, start=1):
-                votes, count = detect_votes(path, metadata)
-                # print(f"{index}/{total} - {count}({metadata["quota"]}) - {path}")
+            for index, filepath in enumerate(filepaths, start=1):
+                votes, count = detect_votes(filepath, metadata, output_path)
+                # print(f"{index}/{total} - {count}({metadata["quota"]}) - {filepath}")
                 report_writer.writerow(
                     [index]
                     + [int(vote) for _, _, vote in votes]
-                    + [count, metadata["quota"], count == metadata["quota"], path]
+                    + [count, metadata["quota"], count == metadata["quota"], filepath]
                 )
     else:
         print("📄 Файл: ", path)
@@ -250,7 +251,9 @@ if __name__ == "__main__":
             paths = [
                 Path(root, i)
                 for i in os.listdir(root)
-                if not i.startswith(".") and os.path.isdir(Path(root, i))
+                if not i.startswith(".")
+                and os.path.isdir(Path(root, i))
+                and os.path.exists(Path(root, i, f"{i}.yaml"))
             ]
         except NotADirectoryError:
             print(f"{root} is not a directory")

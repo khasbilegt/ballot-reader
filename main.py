@@ -135,7 +135,7 @@ def get_votes(img, candidates, x_weight=0, y_weight=0):
     return votes, cropped, vote_count
 
 
-def detect_votes(path: Path, metadata, write_dir=Path("./process")):
+def detect_votes(path: Path, metadata):
     img = cv.imread(str(path))
     cropped_image = crop_image(img)
     votes, marked_image, vote_count = get_votes(cropped_image, metadata["candidates"])
@@ -145,8 +145,7 @@ def detect_votes(path: Path, metadata, write_dir=Path("./process")):
         logging.error(
             f"Буруу тоолсон: {vote_count}/{metadata["quota"]} - {path}",
         )
-
-        processed_path = write_dir / path
+        processed_path = path.parent.parent / "processed"
         if not processed_path.parent.exists():
             processed_path.parent.mkdir(parents=True)
 
@@ -172,8 +171,7 @@ def detect_votes(path: Path, metadata, write_dir=Path("./process")):
             2,
             cv.LINE_AA,
         )
-
-        cv.imwrite(str(processed_path), converted_image)
+        cv.imwrite(str(Path(processed_path, path.name)), converted_image)
 
     return votes, vote_count
 
@@ -196,13 +194,12 @@ def get_metadata(path, row_offset=9, column_offset=11):
 
 
 def worker(path):
-    logging.basicConfig(
-        filename="./election.log",
-        filemode="w",
-        format="[%(asctime)s] %(levelname)s - %(message)s",
-    )
-
     if path.is_dir():
+        logging.basicConfig(
+            filename=Path(path, "election.log"),
+            filemode="w",
+            format="[%(asctime)s] %(levelname)s - %(message)s",
+        )
         print("📁 Хавтас: ", path)
         filepaths = [
             Path(root, f)
@@ -225,7 +222,7 @@ def worker(path):
 
             for index, path in enumerate(filepaths, start=1):
                 votes, count = detect_votes(path, metadata)
-                print(f"{index}/{total} - {count}({metadata["quota"]}) - {path}")
+                # print(f"{index}/{total} - {count}({metadata["quota"]}) - {path}")
                 report_writer.writerow(
                     [index]
                     + [int(vote) for _, _, vote in votes]

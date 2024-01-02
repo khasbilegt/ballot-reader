@@ -1,0 +1,42 @@
+quota: 2
+groups:
+  МАН:
+    column: 1
+    row: 1
+    candidates:
+      - Төгсжаргал Ганди
+      - Зана Энхтөр
+
+  АН:
+    column: 2
+    row: 1
+    candidates:
+      - Жамба Батсуурь
+      - Наянтай Ганибал
+
+  ТБЭ:
+    column: 3
+    row: 1
+    candidates:
+      - Намсрай Лутбаяр
+      - Чанцал Үл-олдох
+
+  ШЭ:
+    column: 1
+    row: 5
+    candidates:
+      - Айлгүй Төмөр-Очир
+      - Насрай Лхагвасүрэн
+
+  ЗХЭЭ:
+    column: 2
+    row: 5
+    candidates:
+      - Ренчиндорж Энхтуяа
+
+  ЗОН:
+    column: 3
+    row: 5
+    candidates:
+      - Жаргалсайхан Мөнхзаяа
+  

@@ -2,18 +2,12 @@ import argparse
 import csv
 import logging
 import os
-import sys
+from multiprocessing import Pool
 from pathlib import Path
 
 import cv2 as cv
 import numpy as np
 import yaml
-
-logging.basicConfig(
-    filename="./election.log",
-    filemode="w",
-    format="[%(asctime)s] %(levelname)s - %(message)s",
-)
 
 parser = argparse.ArgumentParser()
 parser.add_argument("paths", type=str, nargs="+")
@@ -185,9 +179,7 @@ def detect_votes(path: Path, metadata, write_dir=Path("./process")):
 
 
 def get_metadata(path, row_offset=9, column_offset=11):
-    if (
-        path := Path(path if path.is_dir() else path.parent, "metadata.yaml")
-    ) and not path.exists():
+    if (path := Path(path, "metadata.yaml")) and not path.exists():
         raise FileNotFoundError(
             "Нэр дэвшигчдийн мэдээлэл одсонгүй. Боловсруулалт хийх файлын хамт metadata.yaml гэсэн нэртэйгээр оруулна уу."
         )
@@ -204,6 +196,12 @@ def get_metadata(path, row_offset=9, column_offset=11):
 
 
 def worker(path):
+    logging.basicConfig(
+        filename="./election.log",
+        filemode="w",
+        format="[%(asctime)s] %(levelname)s - %(message)s",
+    )
+
     if path.is_dir():
         print("📁 Хавтас: ", path)
         filepaths = [
@@ -244,10 +242,24 @@ def worker(path):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        raise Exception("Боловсруулалт хийх зураг эсвэл хавтсын замыг оруулна уу!")
+    args = parser.parse_args()
 
-    if len(sys.argv) >= 2 and (path := Path(sys.argv[1])) and not path.exists():
-        raise FileNotFoundError("Заасан зам олдсонгүй!")
+    if args.root:
+        if len(args.paths) != 1:
+            raise RuntimeError("ddd")
 
-    worker(path)
+        root = args.paths[0]
+        try:
+            paths = [
+                Path(root, i)
+                for i in os.listdir(root)
+                if not i.startswith(".") and os.path.isdir(Path(root, i))
+            ]
+        except NotADirectoryError:
+            print(f"{root} is not a directory")
+            exit(1)
+    else:
+        paths = args.paths
+
+    with Pool(processes=min(args.concurrency, len(paths))) as pool:
+        pool.map(worker, (Path(i) for i in paths))

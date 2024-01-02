@@ -191,6 +191,7 @@ def get_metadata(path, row_offset=9, column_offset=11):
 
 
 def worker(path):
+    print("📁 Хавтас: " if path.is_dir() else "📄 Файл: ", path)
     if path.is_dir():
         output_path = Path.home() / "OUTPUT" / path.stem
         if not output_path.exists():
@@ -230,7 +231,6 @@ def worker(path):
                     + [count, metadata["quota"], count == metadata["quota"], filepath]
                 )
     else:
-        print("📄 Файл: ", path)
         metadata = get_metadata(path)
         votes, count = detect_votes(path, metadata)
         candidate_names = [f"{v[1]} ({v[0]})" for v in votes if v[-1]]

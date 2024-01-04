@@ -59,16 +59,17 @@ groups:
     row: 8
     candidates:
       - Ганчил Ганбат
+      - 
 
   ИЭН:
     column: 1
-    row: 11
+    row: 13
     candidates:
       - Зулаа Бат-Отгон
 
   Бие даагч:
     column: 2
-    row: 11
+    row: 13
     candidates:
       - Доржготов Батжаргал
       - Ганбат Тулга

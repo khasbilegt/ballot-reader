@@ -137,41 +137,47 @@ def get_votes(img, candidates, x_weight=0, y_weight=0):
 
 
 def detect_votes(path: Path, metadata, processed_path):
-    img = cv.imread(str(path))
-    cropped_image = crop_image(img)
-    votes, marked_image, vote_count = get_votes(cropped_image, metadata["candidates"])
-    converted_image = cv.cvtColor(marked_image, cv.COLOR_GRAY2BGR)
-
-    if not (vote_count == metadata["quota"]):
-        logging.error(
-            f"Буруу тоолсон: {vote_count}/{metadata["quota"]} - {path}",
+    try:
+        img = cv.imread(str(path))
+        cropped_image = crop_image(img)
+        votes, marked_image, vote_count = get_votes(
+            cropped_image, metadata["candidates"]
         )
+        converted_image = cv.cvtColor(marked_image, cv.COLOR_GRAY2BGR)
 
-        height, width, _ = converted_image.shape
+        if not (vote_count == metadata["quota"]):
+            logging.error(
+                f"Буруу тоолсон: {vote_count}/{metadata["quota"]} - {path}",
+            )
 
-        cv.putText(
-            converted_image,
-            f"Counted: {vote_count}",
-            (int(width / 2) - 100, height - 250),
-            cv.FONT_HERSHEY_SIMPLEX,
-            1,
-            (0, 255, 0),
-            2,
-            cv.LINE_AA,
-        )
-        cv.putText(
-            converted_image,
-            f"Quota: {metadata["quota"]}",
-            (int(width / 2) - 100, height - 200),
-            cv.FONT_HERSHEY_SIMPLEX,
-            1,
-            (0, 0, 255),
-            2,
-            cv.LINE_AA,
-        )
-        cv.imwrite(str(Path(processed_path, path.name)), converted_image)
+            height, width, _ = converted_image.shape
 
-    return votes, vote_count
+            cv.putText(
+                converted_image,
+                f"Counted: {vote_count}",
+                (int(width / 2) - 100, height - 250),
+                cv.FONT_HERSHEY_SIMPLEX,
+                1,
+                (0, 255, 0),
+                2,
+                cv.LINE_AA,
+            )
+            cv.putText(
+                converted_image,
+                f"Quota: {metadata["quota"]}",
+                (int(width / 2) - 100, height - 200),
+                cv.FONT_HERSHEY_SIMPLEX,
+                1,
+                (0, 0, 255),
+                2,
+                cv.LINE_AA,
+            )
+            cv.imwrite(str(Path(processed_path, path.name)), converted_image)
+
+        return votes, vote_count
+    except Exception as e:
+        print(path, e)
+        raise e
 
 
 def get_metadata(path, metadata_path, row_offset=9, column_offset=11):
@@ -212,12 +218,14 @@ def worker(path):
             format="[%(asctime)s] %(levelname)s - %(message)s",
         )
 
-        filepaths = [
-            Path(root, f)
-            for root, _, files in path.walk(on_error=print)
-            for f in files
-            if Path(root, f).suffix in [".jpeg", ".jpg"]
-        ]
+        filepaths = sorted(
+            [
+                Path(root, f)
+                for root, _, files in path.walk(on_error=print)
+                for f in files
+                if Path(root, f).suffix in [".jpeg", ".jpg"]
+            ]
+        )
         total = len(filepaths)
         metadata = get_metadata(path, metadata_path)
         with Path(output_path, "report.csv").open(mode="w") as report:
@@ -232,13 +240,33 @@ def worker(path):
             )
 
             for index, filepath in enumerate(filepaths, start=1):
-                votes, count = detect_votes(filepath, metadata, output_path)
-                # print(f"{index}/{total} - {count}({metadata["quota"]}) - {filepath}")
-                report_writer.writerow(
-                    [index]
-                    + [int(vote) for _, _, vote in votes]
-                    + [count, metadata["quota"], count == metadata["quota"], filepath]
-                )
+                try:
+                    votes, count = detect_votes(filepath, metadata, output_path)
+                    print(
+                        f"{index}/{total} - {count}({metadata["quota"]}) - {filepath}"
+                    )
+                    report_writer.writerow(
+                        [index]
+                        + [int(vote) for _, _, vote in votes]
+                        + [
+                            count,
+                            metadata["quota"],
+                            count == metadata["quota"],
+                            filepath,
+                        ]
+                    )
+                except Exception:
+                    report_writer.writerow(
+                        [index]
+                        + [0 for _ in range(int(metadata["quota"]))]
+                        + [
+                            0,
+                            metadata["quota"],
+                            False,
+                            filepath,
+                        ]
+                    )
+                    continue
     else:
         metadata = get_metadata(path)
         votes, count = detect_votes(path, metadata)

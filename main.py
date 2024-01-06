@@ -1,4 +1,5 @@
 import argparse
+import codecs
 import csv
 import logging
 import os
@@ -229,7 +230,9 @@ def worker(path):
         total = len(filepaths)
         metadata = get_metadata(path, metadata_path)
         with Path(output_path, "report.csv").open(mode="w") as report:
+            report.write(codecs.BOM_UTF8.decode())
             report_writer = csv.writer(report)
+
             report_writer.writerow(
                 ["Дугаар"]
                 + [

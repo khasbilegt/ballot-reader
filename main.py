@@ -17,6 +17,18 @@ parser.add_argument("--root", "-r", action="store_true")
 parser.add_argument("--metadata", "-m", action="store_true")
 
 
+def correct_path(path: str):
+    source_path = "/Volumes/New Volume/2020 УИХ сонгууль зурган файл/"
+
+    if (prefix := "/Users/oneline/Documents/ballots/") and path.startswith(prefix):
+        corrected_path = path.replace(prefix, source_path)
+    elif (prefix := "/Users/khasbilegt/INPUT/") and path.startswith(prefix):
+        corrected_path = path.replace(prefix, source_path)
+    else:
+        corrected_path = path
+    return corrected_path, corrected_path.removeprefix(source_path)
+
+
 def pre_process_image(img):
     gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
     blur = cv.GaussianBlur(gray, (5, 5), 0)
@@ -234,7 +246,7 @@ def worker(path):
             report_writer = csv.writer(report)
 
             report_writer.writerow(
-                ["Дугаар"]
+                ["Дугаар", "Тойрог", "Хэсгийн хороо"]
                 + [
                     f"{name} ({group_name})"
                     for group_name, name, _, _ in metadata["candidates"]
@@ -248,17 +260,33 @@ def worker(path):
                     print(
                         f"{index}/{total} - {count}({metadata["quota"]}) - {filepath}"
                     )
+
+                    corrected_path, normalized_path = correct_path(str(filepath))
+                    segments = normalized_path.split("/")
+                    toirog = segments[0]
+
+                    if (
+                        toirog.startswith("7")
+                        or toirog.startswith("9")
+                        or toirog.startswith("26")
+                    ):
+                        khoroo = [toirog.split(" ", maxsplit=1)[0], segments[2]]
+                    else:
+                        khoroo = segments[1].split("-", maxsplit=1)
+
                     report_writer.writerow(
                         [index]
+                        + khoroo
                         + [int(vote) for _, _, vote in votes]
                         + [
                             count,
                             metadata["quota"],
                             count == metadata["quota"],
-                            filepath,
+                            corrected_path,
                         ]
                     )
-                except Exception:
+                except Exception as e:
+                    logging.error(f"{filepath} - {str(e)}")
                     report_writer.writerow(
                         [index]
                         + [0 for _ in range(int(metadata["quota"]))]

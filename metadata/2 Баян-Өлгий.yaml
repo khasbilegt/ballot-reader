@@ -1,6 +1,6 @@
 quota: 3
 groups:
-  group_1:
+  МАН:
     column: 1
     row: 1
     candidates:
@@ -8,7 +8,7 @@ groups:
       - Айп Гылымхан
       - Телухан Аубакар
 
-  group_2:
+  АН:
     column: 2
     row: 1
     candidates:
@@ -16,7 +16,7 @@ groups:
       - Булан Бейсен
       - Рахмет Гажайв
 
-  group_3:
+  ТБЭ:
     column: 3
     row: 1
     candidates:
@@ -24,7 +24,7 @@ groups:
       - Зулпай Батырек
       - Таштуан Ауез
 
-  group_4:
+  ШЭ:
     column: 1
     row: 6
     candidates:
@@ -32,19 +32,19 @@ groups:
       - Палдай Нямхүү
       - Харатышхан Ганибат
 
-  group_5:
+  ХХН:
     column: 2
     row: 6
     candidates:
       - Гавал-Эрдэнэ Баянмөнх
 
-  group_6:
+  ЗОН:
     column: 3
     row: 6
     candidates:
       - Батмөнх Бямбагэрэл
 
-  group_7:
+  Бие даагч:
     column: 1
     row: 10
     candidates:

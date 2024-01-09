@@ -1,6 +1,6 @@
 quota: 3
 groups:
-  group_1:
+  МАН:
     column: 1
     row: 1
     candidates:
@@ -8,7 +8,7 @@ groups:
       - Баттогтох Чойжилсүрэн
       - Намсрай Цэрэнбат
 
-  group_2:
+  АН:
     column: 2
     row: 1
     candidates:
@@ -16,7 +16,7 @@ groups:
       - Одон Цогтгэрэл
       - Даш Цэндсүрэн
 
-  group_3:
+  ТБЭ:
     column: 3
     row: 1
     candidates:
@@ -24,7 +24,7 @@ groups:
       - Хорлоогийн Удвалцэцэг
       - Дамдинсүрэн Гансүрэн
 
-  group_4:
+  ШЭ:
     column: 1
     row: 6
     candidates:
@@ -32,7 +32,7 @@ groups:
       - Гансүх Нямсүрэн
       - Авирмэд Чинбат
 
-  group_5:
+  ЗХЭЭ:
     column: 2
     row: 6
     candidates:
@@ -40,20 +40,20 @@ groups:
       - Доржнамжил Болд-Эрдэнэ
       - Мөнхбаяр Цэдэнпунцаг
 
-  group_6:
+  ЭЧХН:
     column: 3
     row: 6
     candidates:
       - Дулмаа Ганхуяг
       - Иш Эрдэнэчимэг
 
-  group_7:
+  ЗОН:
     column: 1
     row: 10
     candidates:
       - Ихбаатар Золзаяа
 
-  group_8:
+  Бие даагч:
     column: 2
     row: 10
     candidates:

@@ -1,47 +1,47 @@
 quota: 2
 groups:
-  Монгол Ардын Нам:
+  МАН:
     column: 1
     row: 1
     candidates:
       - Цэдэндамба Цэрэнпунцаг
       - Балжинням Баярсайхан
 
-  Ардчилсан Нам:
+  АН:
     column: 2
     row: 1
     candidates:
       - Загдхүү Нарантуяа
       - Даймаа Батсайхан
 
-  Group 3:
+  ТБЭ:
     column: 3
     row: 1
     candidates:
       - Доржпаламын Эрдэнэцогт
       - Эрдэнэбат Гүндсамбуу
 
-  Gorup 4:
+  ШЭ:
     column: 1
     row: 5
     candidates:
       - Шинэсамбуу Сайхансамбуу
       - Алтангэрэл Дорждагва
 
-  Group 5:
+  ЗХЭЭ:
     column: 2
     row: 5
     candidates:
       - Сүхбат Бямбаасүрэн
       - Балжинням Амараа
 
-  Group 6:
+  ЗОН:
     column: 3
     row: 5
     candidates:
       - Дугаржав Баянмөнх
 
-  Group 7:
+  Бие даагч:
     column: 1
     row: 8
     candidates:

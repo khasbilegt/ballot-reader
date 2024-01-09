@@ -1,13 +1,13 @@
 quota: 2
 groups:
-  Монгол Ардын Нам:
+  МАН:
     column: 1
     row: 1
     candidates:
       - Хишгээгийн Нямбаатар
       - Бадарчийн Жаргалмаа
 
-  Ардчилсан Нам:
+  АН:
     column: 2
     row: 1
     candidates:

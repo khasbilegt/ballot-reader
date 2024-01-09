@@ -1,6 +1,6 @@
 quota: 3
 groups:
-  Монгол Ардын Нам:
+  МАН:
     column: 1
     row: 1
     candidates:
@@ -9,7 +9,7 @@ groups:
       - Жамъянхорлоогийн Сүхбаатар
 
 
-  Ардчилсан Нам:
+  АН:
     column: 2
     row: 1
     candidates:
